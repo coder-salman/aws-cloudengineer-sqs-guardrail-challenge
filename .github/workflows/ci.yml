@@ -43,7 +43,31 @@ jobs:
           # exit-zero treats all errors as warnings
           flake8 ./lambda_function/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       
-
+      - name: Install YAML linter
+        run: |
+          pip install yamllint
+      
+      - name: Lint CloudFormation template
+        run: |
+          yamllint -c .yamllint.yml -f standard template.yaml
+        continue-on-error: true
+      
+      - name: Run unit tests
+        run: |
+          if [ -d "./tests" ]; then
+            pytest ./tests/
+          else
+            echo "No test directory found, skipping tests"
+          fi
+        continue-on-error: true
+      
+      - name: Validate CloudFormation template
+        run: |
+          aws cloudformation validate-template --template-body file://template.yaml
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
   
   package-and-deploy:
     name: Package and Deploy
@@ -60,6 +84,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
       
       - name: Create Lambda deployment package
         run: |
